@@ -96,23 +96,25 @@ for j = 3:numVars
         
 end
 
+i = 1;
+
 ColOrd = get(gca,'ColorOrder');
-for i = 1:Length
+while i < Length
     for j = 3:numVars - 2
         if mod(j,2) ~= 0
             hold on
             px = dataMat(i,j);
             py = dataMat(i,j + 1);
 
-            x = dataMat(1,j + 2);
-            y = dataMat(1,j + 3);
+            x = dataMat(i,j + 2);
+            y = dataMat(i,j + 3);
 
             if px == 0 || py == 0 || x == 0 || y == 0
                 break
             end
 
-            dx = px - x;
-            dy = py - y;
+            dx = x - px;
+            dy = y - py;
 
             t1 = tan(dx/dy);
             t2 = tan(dy/dx);
@@ -120,10 +122,40 @@ for i = 1:Length
 
             line([px, x],[py, y], 'Color', ColOrd(j,:))
             axis([xmin,xmax,ymin,ymax])
+            title(strcat('Stimulated Rat Limb Motion @ t = ', num2str( dataMat(i,2))) )
         end
 
     end
+    
+    vidPath = '/Users/meghan/Desktop/Testing/20141128001_2.mp4';
+    vid = VideoReader(vidPath);
+    vidWidth = vid.Width;
+    vidHeight = vid.Height;
+    
+    M = struct('cdata', zeros(vidHeight, vidWidth, 3, 'uint8'), 'colormap', []);
+    
+    for k = 1:300
+        mov(k).cdata = read(vid,k);
+    end
+    
+    hf = figure;
+    set(hf, 'position', [150, 150, vidWidth, vidHeight]);
+    movie(hf,mov,1,vid.FrameRate);
+    
+    
     hold off
+    button = waitforbuttonpress();
+    %go backward
+    if button == 0
+        if i ~= 1
+            i = i - 1;
+        end
+    else
+        i = i + 1;
+    end
+    
+    clf
+    'Next'
     %saveas(gcf,strcat('/Users/meghan/Desktop/Testing/Testing Photos/boop', int2str(i), '.png'))
     %i
     
