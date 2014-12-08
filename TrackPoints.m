@@ -1,32 +1,24 @@
-function [timeMat, thetaMat] = TrackPoints(filepath, filenames, numVars)
+function [dataMat] = TrackPoints(filepath, filenames, numVars)
 %CinePlex Data Analysis Function
 %Parses text files from Cineplex to determine time and angle
-%Removes any data points where any coordinate was zero
-%assuming that in those cases the dots were out of the camera's
-%field of view. Finds theta, checks for NAN results, determines
-%beginning and end of signal by checking for stability. 
-%Plots theta vs. time.
+%Plots each tracked point connected to the others with lines
+%Tracked points should be in columns in the order that you would like
+%those points connected in the figures
 
 %Inputs: filepath (string) excluding file name
 %        filenames (cell array of strings) file names separated by commas
-%        frameMat (matrix) number of frames for each stimulation pattern
-%                          each file gets a row, doesn't include patterns
-%                          1 & 6
+%        numVars (int) number of points tracked
 
 %Meghan Jimenez
 %SINAPSE
-%27 November 2014
+%8 December 2014
 
 %Clear anything in the figure
 clf
 
-%Create theta matrix
-thetaMat = [];
-timeMat = [];
-
 for c = 1:length(filenames)
 %Make sure nothing carries over from previous runs except what we want
-clearvars -except filepath filenames c thetaMat timeMat frameMat numVars
+clearvars -except c filepath filenames numVars
     
 %Construct file name
 filename = cell2mat(strcat(filepath,'/',filenames(c),'.txt'));
@@ -46,16 +38,13 @@ numVars = 2 + (2*numVars);
 %of the total data string based on the number of variables
 Length = length(data)/numVars;
 
-%Iniialize matrix for holding data and vector for tracking
-%when a zero has been found in the data
+%Iniialize matrix for holding data
 dataMat(1:Length,numVars) = 0;
 
 %Variable to keep track of the line we are on in data
 k = 1;
 
-%Loops over the empty datMat adding in numbers from data,
-%checks for zeros, and adds the row number for zeros found
-%to the list of rows to delete (foundZero)
+%Loops over the empty datMat adding in numbers from data
 for i = 1:Length
     for j = 1:numVars
         newDat = str2num(data{k});
@@ -71,8 +60,8 @@ xmax = dataMat(1,3);
 ymin = dataMat(2,3);
 ymax = dataMat(2,3);
 
-%Find max and min for x and y
-
+%Find max and min for x and y by checking through each tracked point's 
+%x and y values and comparing
 for j = 3:numVars
     cmax = max(dataMat(:,j));
     cmin = min(dataMat(:,j));
@@ -96,38 +85,69 @@ for j = 3:numVars
         
 end
 
+%Plotting and display
 i = 1;
-
 ColOrd = get(gca,'ColorOrder');
+
+%Loop over all of the variables in each from of the video
+%Skips time and frame columns, looks at variables in x,y pairs and so
+%skips the even (y) columns when looping
+%Tracks the previous (px, py) and current (x, y) point to draw lines
+%between them
+lineLen = 0;
+px = 0;
+py = 0;
 while i < Length
     for j = 3:numVars - 2
         if mod(j,2) ~= 0
             hold on
-            px = dataMat(i,j);
+
+            ppx = px; %2-back x,y
+            ppy = py;
+            
+            px = dataMat(i,j); %Previous x, y
             py = dataMat(i,j + 1);
 
-            x = dataMat(i,j + 2);
+            x = dataMat(i,j + 2); %Current x, y
             y = dataMat(i,j + 3);
-
+            
+            %Skip the point if anything is zero
+            %This probably doesn't work as intended.
             if px == 0 || py == 0 || x == 0 || y == 0
                 break
             end
-
+            
+            %Store the previous line length
+            pLineLen = lineLen;
+            
+            %Calculate the distance between points
             dx = x - px;
             dy = y - py;
-
-            t1 = tan(dx/dy);
-            t2 = tan(dy/dx);
-            t3 = 180 - t1 - t2;
-
+            lineLen = sqrt(dx^2 + dy^2);
+            
+            %Calculate the angle
+            if j > 3
+                hypDx = ppx - x;
+                hypDy = ppy - y;
+                hyp = sqrt(hypDx^2 + hypDy^2);
+                theta = acosd((pLineLen^2 + lineLen^2 - hyp^2)...
+                   /(2*pLineLen*lineLen));
+            end
+            
+            %Plot lines
             line([px, x],[py, y], 'Color', ColOrd(j,:))
             axis([xmin,xmax,ymin,ymax])
-            title(strcat('Stimulated Rat Limb Motion @ t = ', num2str( dataMat(i,2))) )
+            title(strcat('Stimulated Rat Limb Motion @ t = ', ...
+                num2str( dataMat(i,2))) )
+            if j > 3
+                text(px, py + (ymax - ymin)/25, strcat(num2str(theta), '°'))
+            end
         end
 
     end
     
     %{
+    %Video nonsense that doesn't work
     vidPath = '/Users/meghan/Desktop/Testing/20141128001_2.mp4';
     vid = VideoReader(vidPath);
     vidWidth = vid.Width;
@@ -145,8 +165,8 @@ while i < Length
     %}
     
     hold off
+    %Keyboard press navigates forward, mouse click navigates backward
     button = waitforbuttonpress();
-    %go backward
     if button == 0
         if i ~= 1
             i = i - 1;
