@@ -17,8 +17,6 @@ function [dataMat] = TrackPoints(filepath, filenames, numVars)
 clf
 
 for c = 1:length(filenames)
-%Make sure nothing carries over from previous runs except what we want
-clearvars -except c filepath filenames numVars
     
 %Construct file name
 filename = cell2mat(strcat(filepath,'/',filenames(c),'.txt'));
@@ -39,7 +37,10 @@ numVars = 2 + (2*numVars);
 Length = length(data)/numVars;
 
 %Iniialize matrix for holding data
-dataMat(1:Length,numVars) = 0;
+dataMat(1:Length,numVars) = 0
+
+%Initialize matrix for holding theta values
+thetaMat(1:Length - 1, (numVars - 2)/2 - 2) = 0
 
 %Variable to keep track of the line we are on in data
 k = 1;
@@ -132,6 +133,7 @@ while i < Length
                 hyp = sqrt(hypDx^2 + hypDy^2);
                 theta = acosd((pLineLen^2 + lineLen^2 - hyp^2)...
                    /(2*pLineLen*lineLen));
+                thetaMat(i,(j-1)/2 - 1) = theta
             end
             
             %Plot lines
@@ -181,6 +183,9 @@ while i < Length
     %i
     
 end
+
+figure
+plot(thetaMat, dataMat(1,:))
 
 %I = imread(strcat('/Users/meghan/Desktop/Testing/Testing Photos/boop', int2str(i),'.png'));
 %imshow(I);
