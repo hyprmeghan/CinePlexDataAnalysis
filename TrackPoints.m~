@@ -43,7 +43,7 @@ Length = length(data)/numVars;
 dataMat(1:Length,numVars) = 0;
 
 %Initialize matrix for holding theta values
-thetaMat(1:Length - 1, (numVars - 2)/2 - 2) = 0;
+thetaMat(1:Length, (numVars - 2)/2 - 2) = 0;
 
 %Variable to keep track of the line we are on in data
 k = 1;
@@ -143,7 +143,7 @@ for i = 1:Length
 end
 
 i = 1;
-while i < Length
+while i <= Length
     for j = 3:numVars - 2
         if mod(j,2) ~= 0
             hold on
@@ -158,7 +158,9 @@ while i < Length
             line([px, x],[py, y], 'Color', ColOrd(j,:))
             axis([xmin,xmax,ymin,ymax])
             title(strcat('Stimulated Rat Limb Motion @ t = ', ...
-                num2str( dataMat(i,2))) )
+                num2str( dataMat(i,2)), ', f = ', num2str(dataMat(i,1))))
+            slider = uicontrol('Style','slider', 'Max', Length, ...
+                'Min', 1, 'SliderStep', 1)
             if j > 3
                 text(px, py + (ymax - ymin)/25, ...
                 strcat(num2str(thetaMat(i,(j-1)/2 - 1)), '°'))
@@ -191,13 +193,16 @@ while i < Length
         end
         if CH == 102
             frame = input('Frame:');
+            if frame > Length
+                frame = Length;
+            end
             i = frame;
         end
         
         if CH == 116
             time = input('Time (s):');
-            
-            i = frame;
+            tFrame = find(abs((dataMat(:,2) - time)) < 0.017);
+            i = tFrame(1);
         end
         
         clf
@@ -206,6 +211,9 @@ while i < Length
 end
 
 %figure
-plot(thetaMat, dataMat(1,:))
+plot(dataMat(:,2), thetaMat)
+title('Rat Leg Angular Motion')
+xlabel('Time (s)')
+ylabel('Angle (degrees)')
 
 end
