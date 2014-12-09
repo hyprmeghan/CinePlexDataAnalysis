@@ -13,6 +13,9 @@ function [dataMat] = TrackPoints(filepath, filenames, numVars)
 %SINAPSE
 %8 December 2014
 
+%%%*******************************Fix then number of angles you get
+%or check it at least. it might be right.
+
 %Clear anything in the figure
 clf
 
@@ -40,7 +43,7 @@ Length = length(data)/numVars;
 dataMat(1:Length,numVars) = 0;
 
 %Initialize matrix for holding theta values
-thetamat(1:Length, numVars - 2);
+thetaMat(1:Length - 1, (numVars - 2)/2 - 2) = 0;
 
 %Variable to keep track of the line we are on in data
 k = 1;
@@ -98,11 +101,9 @@ ColOrd = get(gca,'ColorOrder');
 lineLen = 0;
 px = 0;
 py = 0;
-while i < Length
+for i = 1:Length
     for j = 3:numVars - 2
         if mod(j,2) ~= 0
-            hold on
-
             ppx = px; %2-back x,y
             ppy = py;
             
@@ -112,11 +113,13 @@ while i < Length
             x = dataMat(i,j + 2); %Current x, y
             y = dataMat(i,j + 3);
             
+            %{
             %Skip the point if anything is zero
             %This probably doesn't work as intended.
             if px == 0 || py == 0 || x == 0 || y == 0
                 break
             end
+            %}
             
             %Store the previous line length
             pLineLen = lineLen;
@@ -133,8 +136,23 @@ while i < Length
                 hyp = sqrt(hypDx^2 + hypDy^2);
                 theta = acosd((pLineLen^2 + lineLen^2 - hyp^2)...
                    /(2*pLineLen*lineLen));
-                thetaMat(i, (j-2)/2) = theta
-            end
+                thetaMat(i,(j-1)/2 - 1) = theta;
+            end            
+        end
+    end
+end
+
+i = 1;
+while i < Length
+    for j = 3:numVars - 2
+        if mod(j,2) ~= 0
+            hold on
+            
+            px = dataMat(i,j); %Previous x, y
+            py = dataMat(i,j + 1);
+
+            x = dataMat(i,j + 2); %Current x, y
+            y = dataMat(i,j + 3);
             
             %Plot lines
             line([px, x],[py, y], 'Color', ColOrd(j,:))
@@ -142,50 +160,52 @@ while i < Length
             title(strcat('Stimulated Rat Limb Motion @ t = ', ...
                 num2str( dataMat(i,2))) )
             if j > 3
-                text(px, py + (ymax - ymin)/25, strcat(num2str(theta), '°'))
+                text(px, py + (ymax - ymin)/25, ...
+                strcat(num2str(thetaMat(i,(j-1)/2 - 1)), '°'))
+            end
+            
+            hold off
+
+        end
+        
+    end
+    if j > 3
+        w = waitforbuttonpress();
+        
+        if w
+            CH = get(gcf,'CurrentCharacter');
+        end
+        
+        
+        %Keyboard press navigates forward, mouse click navigates backward
+        if CH == 98
+            if i ~= 1
+                i = i - 1;
             end
         end
-
-    end
-    
-    %{
-    %Video nonsense that doesn't work
-    vidPath = '/Users/meghan/Desktop/Testing/20141128001_2.mp4';
-    vid = VideoReader(vidPath);
-    vidWidth = vid.Width;
-    vidHeight = vid.Height;
-    
-    M = struct('cdata', zeros(vidHeight, vidWidth, 3, 'uint8'), 'colormap', []);
-    
-    for k = 1:300
-        mov(k).cdata = read(vid,k);
-    end
-    
-    hf = figure;
-    set(hf, 'position', [150, 150, vidWidth, vidHeight]);
-    movie(hf,mov,1,vid.FrameRate);
-    %}
-    
-    hold off
-    %Keyboard press navigates forward, mouse click navigates backward
-    button = waitforbuttonpress();
-    if button == 0
-        if i ~= 1
-            i = i - 1;
+        if CH == 110
+            i = i + 1;
         end
-    else
-        i = i + 1;
+        if CH == 32
+            break
+        end
+        if CH == 102
+            frame = input('Frame:');
+            i = frame;
+        end
+        
+        if CH == 116
+            time = input('Time (s):');
+            
+            i = frame;
+        end
+        
+        clf
+        
     end
-    
-    clf
-    'Next'
-    %saveas(gcf,strcat('/Users/meghan/Desktop/Testing/Testing Photos/boop', int2str(i), '.png'))
-    %i
-    
 end
 
-%I = imread(strcat('/Users/meghan/Desktop/Testing/Testing Photos/boop', int2str(i),'.png'));
-%imshow(I);
-%implay(I);
+%figure
+plot(thetaMat, dataMat(1,:))
 
 end
