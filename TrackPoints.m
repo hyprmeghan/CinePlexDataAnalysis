@@ -18,6 +18,7 @@ function [dataMat] = TrackPoints(filepath, filenames, numVars)
 
 %Clear anything in the figure
 clf
+clef()
 
 for c = 1:length(filenames)
     
@@ -47,7 +48,6 @@ thetaMat(1:Length, (numVars - 2)/2 - 2) = 0;
 
 %Variable to keep track of the line we are on in data
 k = 1;
-
 %Loops over the empty datMat adding in numbers from data
 for i = 1:Length
     for j = 1:numVars
@@ -143,8 +143,20 @@ for i = 1:Length
 end
 
 i = 1;
+%# setup GUI
+hFig = figure('menu','none');
+hAx = axes('Parent',hFig);
+uicontrol('Parent',hFig, 'Style','slider', 'Value',0, 'Min',0,...
+    'Max',Length, 'SliderStep',[1 10], ...
+    'Position',[150 5 300 20], 'Callback',@slider_callback) 
+hTxt = uicontrol('Style','text', 'Position',[290 28 20 15], 'String','0');
+axis([xmin,xmax,ymin,ymax])
+
 while i <= Length
     for j = 3:numVars - 2
+
+
+        
         if mod(j,2) ~= 0
             hold on
             
@@ -153,16 +165,14 @@ while i <= Length
 
             x = dataMat(i,j + 2); %Current x, y
             y = dataMat(i,j + 3);
-            
+                        
             %Plot lines
-            line([px, x],[py, y], 'Color', ColOrd(j,:))
-            axis([xmin,xmax,ymin,ymax])
+            figure(hFig)
+            line([px, x],[py, y], 'Color', ColOrd(j,:));
             title(strcat('Stimulated Rat Limb Motion @ t = ', ...
                 num2str( dataMat(i,2)), ', f = ', num2str(dataMat(i,1))))
-            %{
-                slider = uicontrol('Style','slider', 'Max', Length, ...
-                'Min', 1, 'SliderStep', 1)
-                %}
+            
+ 
             if j > 3
                 text(px, py + (ymax - ymin)/25, ...
                 strcat(num2str(thetaMat(i,(j-1)/2 - 1)), '°'))
@@ -173,6 +183,7 @@ while i <= Length
         end
         
     end
+    CH = '';
     if j > 3
         w = waitforbuttonpress();
         
@@ -207,15 +218,22 @@ while i <= Length
             i = tFrame(1);
         end
         
-        clf
+        cla
         
     end
 end
 
 %figure
+fplot = figure();
 plot(dataMat(:,2), thetaMat)
 title('Rat Leg Angular Motion')
 xlabel('Time (s)')
 ylabel('Angle (degrees)')
 
 end
+end
+
+%# Callback function
+function slider_callback(hObj, eventdata)
+    angle = round(get(hObj,'Value'));        %# get rotation angle in degrees
+end 
