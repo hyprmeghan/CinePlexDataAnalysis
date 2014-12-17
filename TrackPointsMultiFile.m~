@@ -1,4 +1,4 @@
-function [dataMat] = TrackPoints(filepath, filenames, numVars)
+function [dataMat] = TrackPointsMultiFile(filepath, filenames, numVars)
 %CinePlex Data Analysis Function
 %Parses text files from Cineplex to determine time and angle
 %Plots each tracked point connected to the others with lines
@@ -11,7 +11,7 @@ function [dataMat] = TrackPoints(filepath, filenames, numVars)
 
 %Meghan Jimenez
 %SINAPSE
-%8 December 2014
+%16 December 2014
 
 %%%*******************************Fix then number of angles you get
 %or check it at least. it might be right.
@@ -20,21 +20,46 @@ function [dataMat] = TrackPoints(filepath, filenames, numVars)
 clf
 
 %Global variable to track frame number through slider callback
-global f
+global f fChange
 
 for c = 1:length(filenames)
     
 %Construct file name
 filename = cell2mat(strcat(filepath,'/',filenames(c),'.txt'));
 
-%scans the data file for comma delimited strings
-dataMat = load(filename);
+%opens the data file
+fid = fopen(filename, 'r');
 
-%Calculates the number of variables (columns) and data points (rows)
-[Length, numVars] = size(dataMat);
+%scans the data file for comma delimited strings
+data = textscan(fid, '%s', 'delimiter', ',');
+data = data{1}; %something about cell arrays and formatting
+
+%Calculates the number of variables (columns) in the data file
+%based on the user input number of variables
+numVars = 2 + (2*numVars);
+
+%Calculates the length each variable will be from the length
+%of the total data string based on the number of variables
+Length = length(data)/numVars;
+
+%Iniialize matrix for holding data
+dataMat(1:Length,numVars) = 0;
 
 %Initialize matrix for holding theta values
-thetaMat(1:Length, 1:(numVars - 2)/2 - 2) = 0;
+thetaMat(1:Length, (numVars - 2)/2 - 2) = 0;
+
+%Variable to keep track of the line we are on in data
+k = 1;
+
+%Loops over the empty datMat adding in numbers from data
+for i = 1:Length
+    for j = 1:numVars
+        newDat = str2num(data{k});
+              
+        dataMat(i,j) = newDat;
+        k = k + 1;
+    end
+end
 
 %Set mins and maxes to the first of each x and y
 xmin = dataMat(1,3);
@@ -106,9 +131,6 @@ for i = 1:Length
         end
     end
 end
-
-length(thetaMat)
-
 end
 
 %Plotting and display
@@ -119,7 +141,7 @@ f = 1;
 CH = 0;
 % setup GUI (slider)
 hFig = figure();
-%hAx = axes('Parent',hFig);
+hAx = axes('Parent',hFig);
 uicontrol('Parent',hFig, 'Style','slider', 'Value',1, 'Min',1,...
     'Max',Length, 'SliderStep',[1 1], ...
     'Position',[150 5 300 20], 'Callback',@slider_callback); 
@@ -205,12 +227,11 @@ plot(dataMat(:,2), thetaMat)
 title('Rat Leg Angular Motion')
 xlabel('Time (s)')
 ylabel('Angle (degrees)')
-
 end
 
 %Callback function for slider
-function sVal = slider_callback(hObj, ~ ) 
-global f %global frame count must be initialized
+function sVal = slider_callback(hObj, eventdata ) 
+global f fChange %global frame count must be initialized
 
 %get the slider value
 sVal = round(get(hObj,'Value'));
@@ -218,5 +239,6 @@ sVal = round(get(hObj,'Value'));
 %number
 if sVal ~= f
     f = sVal;
+    fChange = 1;
 end
 end

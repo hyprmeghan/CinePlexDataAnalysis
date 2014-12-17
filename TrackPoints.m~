@@ -27,39 +27,14 @@ for c = 1:length(filenames)
 %Construct file name
 filename = cell2mat(strcat(filepath,'/',filenames(c),'.txt'));
 
-%opens the data file
-fid = fopen(filename, 'r');
-
 %scans the data file for comma delimited strings
-data = textscan(fid, '%s', 'delimiter', ',');
-data = data{1}; %something about cell arrays and formatting
+dataMat = load(filename);
 
-%Calculates the number of variables (columns) in the data file
-%based on the user input number of variables
-numVars = 2 + (2*numVars);
-
-%Calculates the length each variable will be from the length
-%of the total data string based on the number of variables
-Length = length(data)/numVars;
-
-%Iniialize matrix for holding data
-dataMat(1:Length,numVars) = 0;
+%Calculates the number of variables (columns) and data points (rows)
+[Length, numVars] = size(dataMat);
 
 %Initialize matrix for holding theta values
-thetaMat(1:Length, (numVars - 2)/2 - 2) = 0;
-
-%Variable to keep track of the line we are on in data
-k = 1;
-
-%Loops over the empty datMat adding in numbers from data
-for i = 1:Length
-    for j = 1:numVars
-        newDat = str2num(data{k});
-              
-        dataMat(i,j) = newDat;
-        k = k + 1;
-    end
-end
+thetaMat(1:Length, 1:(numVars - 2)/2 - 2) = 0;
 
 %Set mins and maxes to the first of each x and y
 xmin = dataMat(1,3);
@@ -132,6 +107,10 @@ for i = 1:Length
     end
 end
 
+length(thetaMat)
+
+end
+
 %Plotting and display
 %Setup color ordering
 ColOrd = get(gca,'ColorOrder');
@@ -140,7 +119,7 @@ f = 1;
 CH = 0;
 % setup GUI (slider)
 hFig = figure();
-hAx = axes('Parent',hFig);
+%hAx = axes('Parent',hFig);
 uicontrol('Parent',hFig, 'Style','slider', 'Value',1, 'Min',1,...
     'Max',Length, 'SliderStep',[1 1], ...
     'Position',[150 5 300 20], 'Callback',@slider_callback); 
@@ -173,10 +152,14 @@ while f <= Length
         end
         
     end
+                
     
     %Navigation through plots
+    %Currently you have to click after moving the slider to update plot
     if j > 3 %This probably needs to be fixed for multi-version
+        
         w = waitforbuttonpress();
+
         if w
             CH = get(gcf,'CurrentCharacter');
         end
@@ -187,7 +170,9 @@ while f <= Length
             end
         end
         if CH == 110 %n navigates forward
-            f = f + 1;
+            if f < Length
+                f = f + 1;
+            end
         end
         if CH == 32 %space breaks
             break
@@ -222,15 +207,16 @@ xlabel('Time (s)')
 ylabel('Angle (degrees)')
 
 end
-end
 
 %Callback function for slider
-function sVal = slider_callback(hObj, eventdata ) 
+function sVal = slider_callback(hObj, ~ ) 
 global f %global frame count must be initialized
 
-%
+%get the slider value
 sVal = round(get(hObj,'Value'));
-    if sVal ~= f
-            f = sVal;
-    end
+%If the frame number isn't the same as the slider value, change the frame
+%number
+if sVal ~= f
+    f = sVal;
+end
 end
