@@ -1,4 +1,4 @@
-function [dataMat] = TrackPoints(filepath, filenames, numVars)
+function [dataMat] = TrackPoints(filepath, filenames)
 %CinePlex Data Analysis Function
 %Parses text files from Cineplex to determine time and angle
 %Plots each tracked point connected to the others with lines
@@ -12,9 +12,6 @@ function [dataMat] = TrackPoints(filepath, filenames, numVars)
 %Meghan Jimenez
 %SINAPSE
 %8 December 2014
-
-%%%*******************************Fix then number of angles you get
-%or check it at least. it might be right.
 
 %Clear anything in the figure
 clf

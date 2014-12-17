@@ -1,4 +1,4 @@
-function [dataMat] = TrackPoints(filepath, filenames, numVars)
+function [dataMat] = TrackPointsMultiFile(fileroot, filenames)
 %CinePlex Data Analysis Function
 %Parses text files from Cineplex to determine time and angle
 %Plots each tracked point connected to the others with lines
@@ -13,40 +13,45 @@ function [dataMat] = TrackPoints(filepath, filenames, numVars)
 %SINAPSE
 %8 December 2014
 
-%%%*******************************Fix then number of angles you get
-%or check it at least. it might be right.
-
 %Clear anything in the figure
 clf
 
 %Global variable to track frame number through slider callback
 global f
 
+fSetup(1:length(filenames)) = {'file'};
+fNames = genvarname(fSetup);
+
+tSetup(1:length(filenames)) = {'theta'};
+tNames = genvarname(tSetup);
+
 for c = 1:length(filenames)
     
 %Construct file name
-filename = cell2mat(strcat(filepath,'/',filenames(c),'.txt'));
+filepath = cell2mat(strcat(fileroot,'/',filenames(c),'.txt'));
 
 %scans the data file for comma delimited strings
-dataMat = load(filename);
+dataMat = load(filepath);
+
+data.(fNames{c}) = dataMat;
 
 %Calculates the number of variables (columns) and data points (rows)
 [Length, numVars] = size(dataMat);
 
 %Initialize matrix for holding theta values
-thetaMat(1:Length, 1:(numVars - 2)/2 - 2) = 0;
+theta.(tNames{c})(1:Length, 1:(numVars - 2)/2 - 2) = 0;
 
 %Set mins and maxes to the first of each x and y
-xmin = dataMat(1,3);
-xmax = dataMat(1,3);
-ymin = dataMat(2,3);
-ymax = dataMat(2,3);
+xmin = data.(fNames{c})(1,3);
+xmax = data.(fNames{c})(1,3);
+ymin = data.(fNames{c})(2,3);
+ymax = data.(fNames{c})(2,3);
 
 %Find max and min for x and y by checking through each tracked point's 
 %x and y values and comparing
 for j = 3:numVars
-    cmax = max(dataMat(:,j));
-    cmin = min(dataMat(:,j));
+    cmax = max(data.(fNames{c})(:,j));
+    cmin = min(data.(fNames{c})(:,j));
     
     if mod(j,2) == 0
         if cmax > ymax
@@ -79,36 +84,33 @@ for i = 1:Length
         if mod(j,2) ~= 0
             ppx = px; %2-back x,y
             ppy = py;
-            
-            px = dataMat(i,j); %Previous x, y
-            py = dataMat(i,j + 1);
 
-            x = dataMat(i,j + 2); %Current x, y
-            y = dataMat(i,j + 3);
-            
+            px = data.(fNames{c})(i,j); %Previous x, y
+            py = data.(fNames{c})(i,j + 1);
+
+            x = data.(fNames{c})(i,j + 2); %Current x, y
+            y = data.(fNames{c})(i,j + 3);
+
             %Store the previous line length
             pLineLen = lineLen;
-            
+
             %Calculate the distance between points
             dx = x - px;
             dy = y - py;
             lineLen = sqrt(dx^2 + dy^2);
-            
+
             %Calculate the angle with law of cosines
             if j > 3
                 hypDx = ppx - x;
                 hypDy = ppy - y;
                 hyp = sqrt(hypDx^2 + hypDy^2);
-                theta = acosd((pLineLen^2 + lineLen^2 - hyp^2)...
+                angle = acosd((pLineLen^2 + lineLen^2 - hyp^2)...
                    /(2*pLineLen*lineLen));
-                thetaMat(i,(j-1)/2 - 1) = theta;
+                theta.(tNames{c})(i,(j-1)/2 - 1) = angle;
             end            
         end
     end
 end
-
-length(thetaMat)
-
 end
 
 %Plotting and display
@@ -124,33 +126,36 @@ uicontrol('Parent',hFig, 'Style','slider', 'Value',1, 'Min',1,...
     'Max',Length, 'SliderStep',[1 1], ...
     'Position',[150 5 300 20], 'Callback',@slider_callback); 
 %Define axis
-axis([xmin,xmax,ymin,ymax]);
+axis([xmin/2,xmax*2,ymin/2,ymax*2]);
 
 %Plot lines to show angle between joints
 while f <= Length
-    for j = 3:numVars - 2
-        if mod(j,2) ~= 0
-            hold on
-            
-            px = dataMat(f,j); %Previous x, y
-            py = dataMat(f,j + 1);
+    for c = 1:length(filenames)
+        for j = 3:numVars - 2
+            if mod(j,2) ~= 0
+                hold on
 
-            x = dataMat(f,j + 2); %Current x, y
-            y = dataMat(f,j + 3);
-            
-            %Plot lines
-            line([px, x],[py, y], 'Color', ColOrd(j,:));            
-            title(strcat('Stimulated Rat Limb Motion @ t = ', ...
-                num2str( dataMat(f,2)), ', f = ', num2str(dataMat(f,1))))
-            if j > 3
-                text(px, py + (ymax - ymin)/25, ...
-                strcat(num2str(thetaMat(f,(j-1)/2 - 1)), '°'))
+                px = data.(fNames{c})(f,j); %Previous x, y
+                py = data.(fNames{c})(f,j + 1);
+
+                x = data.(fNames{c})(f,j + 2); %Current x, y
+                y = data.(fNames{c})(f,j + 3);
+
+                %Plot lines
+                line([px, x],[py, y], 'Color', ColOrd(j,:));            
+                title(strcat('Stimulated Rat Limb Motion @ t = ', ...
+                    num2str(data.(fNames{c})(f,2)), ', f = ', ...
+                    num2str(data.(fNames{c})(f,1))))
+                if j > 3
+                    text(px, py + (ymax - ymin)/25, ...
+                    strcat(num2str(theta.(tNames{c})(f,(j-1)/2 - 1)), '°'))
+                end
+
+                hold off
+
             end
-            
-            hold off
 
         end
-        
     end
                 
     
@@ -201,7 +206,11 @@ end
 clf
 
 %plots angle between points over time
-plot(dataMat(:,2), thetaMat)
+hold on
+for c = 1: length(filenames)
+plot(data.(fNames{c})(:,2), theta.(tNames{c}))
+end
+hold off
 title('Rat Leg Angular Motion')
 xlabel('Time (s)')
 ylabel('Angle (degrees)')
