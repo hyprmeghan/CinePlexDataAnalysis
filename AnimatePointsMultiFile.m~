@@ -1,6 +1,9 @@
-filepath = '/Users/meghan/Desktop/Testing';
-filenames = {'20141128001_1', '20141128001_2'};
+%filepath = '/Users/meghan/Desktop/Testing';
+%filenames = {'20141128001_1', '20141128001_2'};
 
-TrackPointsMultiFile(filepath, filenames, numVars);
+filepath = '/Users/meghan/Desktop/CinePlexbased videos/ImageJ WCR Files'
+filenames = {'WCR09-2', 'WCR10-2'}
+
+TrackPointsMultiFile(filepath, filenames);
 
 'Next'

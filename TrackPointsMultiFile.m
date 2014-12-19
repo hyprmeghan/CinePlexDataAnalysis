@@ -1,17 +1,25 @@
-function [dataMat] = TrackPointsMultiFile(fileroot, filenames)
+function [data, theta] = TrackPointsMultiFile(fileroot, filenames)
 %CinePlex Data Analysis Function
 %Parses text files from Cineplex to determine time and angle
 %Plots each tracked point connected to the others with lines
 %Tracked points should be in columns in the order that you would like
 %those points connected in the figures
 
-%Inputs: filepath (string) excluding file name
+%Inputs: fileroot (string) excluding file name
 %        filenames (cell array of strings) file names separated by commas
-%        numVars (int) number of points tracked
 
 %Meghan Jimenez
 %SINAPSE
-%18 December 2014
+%19 December 2014
+
+disp('This function is meant to help you navigate through CinePlex data')
+disp('for easier data analysis. The following commands can be used:')
+disp('n: next frame')
+disp('b: previous frame')
+disp('t: enter a time to navigate to')
+disp('f: enter a frame to navigate to')
+disp('c: click a point on the average graph to navigate to')
+disp('Move the slider below the plot. Click on the figure to navigate there')
 
 %Clear anything in the figure
 clf
@@ -47,7 +55,11 @@ data.(fNames{c}) = dataMat;
 [Length, numVars] = size(dataMat);
 
 %Initialize data structure for holding theta values
-theta.(tNames{c})(1:Length, 1:(numVars - 2)/2 - 2) = 0;
+if (numVars - 2)/2 - 2 < 1
+    theta.(tNames{c})(1:Length, 1) = 0
+else
+    theta.(tNames{c})(1:Length, 1:(numVars - 2)/2 - 2) = 0
+end
 
 %Loop over all of the variables in each frame of the video
 %Skips time and frame columns, looks at variables in x,y pairs
@@ -159,6 +171,7 @@ end
 %Copy data structures to make averaged versions
 avgData = aData.(fNames{mFile});
 avgTheta = theta.(tNames{mFile});
+sdTheta = theta.(tNames{mFile});
 
 %Find the width of theta
 [~,wTheta] = size(avgTheta);
@@ -197,6 +210,23 @@ for i = 1:Length
         end        
     end
 end
+
+%Copy theta data structure to use for standard deviation
+sdTheta = theta.(tNames{mFile});
+thetaList(1:wTheta) = 0;
+
+%Find standard deviation of theta for each point
+for i = 1:Length
+    for j = 1:wTheta
+        for c = 1:length(filenames)
+            thetaList(c) = theta.(tNames{c})(i,j);
+            if c == length(filenames)
+                sdTheta(i,j) = std(thetaList);                
+            end
+        end
+    end
+end
+
 
 %Plotting and display
 %Setup color ordering
@@ -244,8 +274,9 @@ while f <= Length
             subplot(1,2,2)
             plot(avgData(:,2), avgTheta,'Color', ColOrd(length(filenames) + 1,:))
             plot(avgData(f,2), avgTheta(f), '*')
-            title('Average Rat Leg Angle Over Time')
-            legend('Current Point')
+            
+            
+            title('Average Rat Leg Angle Over Time')            
             xlabel('Time (s)')
             ylabel('Theta (degrees)')
             hold off             
@@ -273,6 +304,24 @@ while f <= Length
                 f = f + 1;
             end
         end
+        
+        if CH == 99 %c let's you choose with cursor on average plot
+            disp('Choose the point you would like to navigate to on the average theta plot')
+            valid = 0;
+            while valid == 0
+                [time,~] = ginput(1);
+
+                if time > avgData(1,2) && time < avgData(mLength,2)
+                    tFrame = find(abs((dataMat(:,2) - time)) < 0.017);
+                    f = tFrame(1);
+                    valid = 1;
+                else
+                    disp('Please choose a point within the average theta plot')
+                end
+            end
+            CH = 0;
+        end
+        
         if CH == 32 %space breaks
             break
         end
@@ -282,12 +331,14 @@ while f <= Length
                 frame = Length;
             end
             f = frame;
+            CH = 0;
         end
         
         if CH == 116 %t allows text input to navigate by time
             time = input('Time (s):');
             tFrame = find(abs((dataMat(:,2) - time)) < 0.017);
             f = tFrame(1);
+            CH = 0;
         end
         
         %clears axis to draw the next figure
