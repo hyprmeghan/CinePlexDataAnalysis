@@ -121,7 +121,7 @@ uicontrol('Parent',hFig, 'Style','slider', 'Value',1, 'Min',1,...
     'Max',Length, 'SliderStep',[1 1], ...
     'Position',[150 5 300 20], 'Callback',@slider_callback); 
 %Define axis
-axis([xmin,xmax,ymin,ymax]);
+%axis([xmin,xmax,ymin,ymax]);
 
 %Plot lines to show angle between joints
 while f <= Length

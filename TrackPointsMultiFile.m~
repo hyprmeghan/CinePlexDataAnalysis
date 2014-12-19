@@ -11,7 +11,7 @@ function [dataMat] = TrackPointsMultiFile(fileroot, filenames)
 
 %Meghan Jimenez
 %SINAPSE
-%8 December 2014
+%18 December 2014
 
 %Clear anything in the figure
 clf
@@ -19,58 +19,35 @@ clf
 %Global variable to track frame number through slider callback
 global f
 
+%Generate a set of names for each file's data and theta values
 fSetup(1:length(filenames)) = {'file'};
 fNames = genvarname(fSetup);
 
 tSetup(1:length(filenames)) = {'theta'};
 tNames = genvarname(tSetup);
 
+%Set the axis maximums and minimums
+xmax = -inf;
+xmin = inf;
+ymax = -inf;
+ymin = inf;
+
 for c = 1:length(filenames)
     
 %Construct file name
 filepath = cell2mat(strcat(fileroot,'/',filenames(c),'.txt'));
 
-%scans the data file for comma delimited strings
+%Load the data from the file into a variable
 dataMat = load(filepath);
 
+%Fill a data structure with the data from the file
 data.(fNames{c}) = dataMat;
 
 %Calculates the number of variables (columns) and data points (rows)
 [Length, numVars] = size(dataMat);
 
-%Initialize matrix for holding theta values
+%Initialize data structure for holding theta values
 theta.(tNames{c})(1:Length, 1:(numVars - 2)/2 - 2) = 0;
-
-%Set mins and maxes to the first of each x and y
-xmin = data.(fNames{c})(1,3);
-xmax = data.(fNames{c})(1,3);
-ymin = data.(fNames{c})(2,3);
-ymax = data.(fNames{c})(2,3);
-
-%Find max and min for x and y by checking through each tracked point's 
-%x and y values and comparing
-for j = 3:numVars
-    cmax = max(data.(fNames{c})(:,j));
-    cmin = min(data.(fNames{c})(:,j));
-    
-    if mod(j,2) == 0
-        if cmax > ymax
-            ymax = cmax;
-        end
-        if cmin < ymin
-            ymin = cmin;
-        end
-    
-    else
-        if cmax > ymax
-            xmax = cmax;
-        end
-        if cmin < ymin
-            xmin = cmin;
-        end
-    end      
-        
-end
 
 %Loop over all of the variables in each frame of the video
 %Skips time and frame columns, looks at variables in x,y pairs
@@ -113,6 +90,114 @@ for i = 1:Length
 end
 end
 
+%Make a copy for adjusted data for plotting
+aData = data;
+xdiff = 0;
+ydiff = 0;
+%Adjust data so that all runs start at the same point
+%Center point is (500, 500)
+for c = 1:length(filenames)
+    for f = 1:Length
+        for j = 3:numVars
+            if j == 3 || j == 4
+                if mod(j,2) ~= 0 
+                    xdiff = 500 - aData.(fNames{c})(f,j);
+                    aData.(fNames{c})(f,j) = aData.(fNames{c})(f,j) + xdiff;
+                else
+                    ydiff = 500 - aData.(fNames{c})(f,j);
+                    aData.(fNames{c})(f,j) = aData.(fNames{c})(f,j) + ydiff;
+                end
+            else
+                if mod(j,2) ~= 0 
+                    aData.(fNames{c})(f,j) = aData.(fNames{c})(f,j) + xdiff;
+                else
+                    aData.(fNames{c})(f,j) = aData.(fNames{c})(f,j) + ydiff;
+                end
+            end
+        end    
+    end
+end
+
+%Find max and min for x and y by checking through each tracked point's 
+%x and y values and comparing
+for c = 1:length(filenames)
+    for j = 3:numVars
+        cmax = max(aData.(fNames{c})(:,j));
+        cmin = min(aData.(fNames{c})(:,j));
+
+        if mod(j,2) == 0
+            if cmax > ymax
+                ymax = cmax;
+            end
+            if cmin < ymin
+                ymin = cmin;
+            end
+
+        else
+            if cmax > ymax
+                xmax = cmax;
+            end
+            if cmin < ymin
+                xmin = cmin;
+            end
+        end      
+
+    end
+end
+
+%Find the file with the maximum length
+mLength = 0;
+mFile = 1;
+for c = 1:length(filenames)
+    [currLength, ~] = size(aData.(fNames{c}));
+    if mLength < currLength
+        mLength = currLength;
+        mFile = c;
+    end
+end
+
+%Copy data structures to make averaged versions
+avgData = aData.(fNames{mFile});
+avgTheta = theta.(tNames{mFile});
+
+%Find the width of theta
+[~,wTheta] = size(avgTheta);
+
+%Take averages over all files of the data and theta values
+for i = 1:Length
+    for j = 1:numVars
+        dCount = 1; %Counters to determine how much to divide by
+        tCount = 1; %in case one file is longer and there are 0's
+        for c = 1:length(filenames)
+            if j > 2 %Ignore the frame and time columns of the data
+                if c == mFile %Skip the copied data
+                    continue
+                end
+                %Average the data
+                if aData.(fNames{c})(i,j) ~= 0
+                    avgData(i,j) = avgData(i,j) + aData.(fNames{c})(i,j);
+                    avgData(i,:);
+                    dCount = dCount + 1;
+                end
+                if c == length(filenames)
+                    avgData(i,j) = avgData(i,j)/dCount;
+                end
+            end
+            %Average theta
+            if j <= wTheta
+                if theta.(tNames{c})(i,j) ~= 0
+                    avgTheta(i,j) = avgTheta(i,j) + theta.(tNames{c})(i,j);
+                    tCount = tCount + 1;
+                end
+                if c == length(filenames)
+                    avgTheta(i,j) = avgTheta(i,j)/tCount;
+                end  
+            end
+            
+        end        
+    end
+end
+
 %Plotting and display
 %Setup color ordering
 ColOrd = get(gca,'ColorOrder');
@@ -125,8 +210,6 @@ hFig = figure();
 uicontrol('Parent',hFig, 'Style','slider', 'Value',1, 'Min',1,...
     'Max',Length, 'SliderStep',[1 1], ...
     'Position',[150 5 300 20], 'Callback',@slider_callback); 
-%Define axis
-axis([xmin/2,xmax*2,ymin/2,ymax*2]);
 
 %Plot lines to show angle between joints
 while f <= Length
@@ -135,26 +218,33 @@ while f <= Length
             if mod(j,2) ~= 0
                 hold on
 
-                px = data.(fNames{c})(f,j); %Previous x, y
-                py = data.(fNames{c})(f,j + 1);
+                px = aData.(fNames{c})(f,j); %Previous x, y
+                py = aData.(fNames{c})(f,j + 1);
 
-                x = data.(fNames{c})(f,j + 2); %Current x, y
-                y = data.(fNames{c})(f,j + 3);
+                x = aData.(fNames{c})(f,j + 2); %Current x, y
+                y = aData.(fNames{c})(f,j + 3);
 
                 %Plot lines
+                subplot(1,2,1)
                 line([px, x],[py, y], 'Color', ColOrd(j,:));            
                 title(strcat('Stimulated Rat Limb Motion @ t = ', ...
-                    num2str(data.(fNames{c})(f,2)), ', f = ', ...
-                    num2str(data.(fNames{c})(f,1))))
+                    num2str(aData.(fNames{c})(f,2)), ', f = ', ...
+                    num2str(aData.(fNames{c})(f,1))))
+                axis([xmin,xmax,ymin,ymax]);
+                %Write angle on plot
                 if j > 3
-                    text(px, py + (ymax - ymin)/25, ...
+                    text(px, py + (ymax - ymin)/100, ...
                     strcat(num2str(theta.(tNames{c})(f,(j-1)/2 - 1)), '°'))
                 end
-
-                hold off
-
-            end
-
+                hold off                
+            end  
+            %Draw average theta plot with a * at the point in the data
+            %currently shown on the plot beside it
+            hold on
+            subplot(1,2,2)
+            plot(avgData(:,2), avgTheta,'Color', ColOrd(length(filenames) + 1,:))
+            plot(avgData(f,2), avgTheta(f), '*')
+            hold off             
         end
     end
                 
@@ -197,8 +287,7 @@ while f <= Length
         end
         
         %clears axis to draw the next figure
-        cla 
-        
+        arrayfun(@cla,findall(0,'type','axes'))
     end
 end
 
@@ -208,12 +297,16 @@ clf
 %plots angle between points over time
 hold on
 for c = 1: length(filenames)
-plot(data.(fNames{c})(:,2), theta.(tNames{c}))
+plot(data.(fNames{c})(:,2), theta.(tNames{c}),'Color', ColOrd(c,:))
 end
-hol
+
+plot(avgData(:,2), avgTheta,'Color', ColOrd(length(filenames) + 1,:))
+
+hold off
 title('Rat Leg Angular Motion')
 xlabel('Time (s)')
 ylabel('Angle (degrees)')
+legend(filenames, 'Average Theta')
 
 end
 
