@@ -1,4 +1,4 @@
-function [data, theta] = TrackPointsMultiFile(fileroot, filenames)
+function [data, theta] = TrackPointsMultiFile(fileroot, filenames, FOI)
 %CinePlex Data Analysis Function
 %Parses text files from Cineplex to determine time and angle
 %Plots each tracked point connected to the others with lines
@@ -7,6 +7,8 @@ function [data, theta] = TrackPointsMultiFile(fileroot, filenames)
 
 %Inputs: fileroot (string) excluding file name
 %        filenames (cell array of strings) file names separated by commas
+%        FOI (vector) frames of interest to be put into a subplot in the
+%        end (optional)
 
 %Meghan Jimenez
 %SINAPSE
@@ -19,6 +21,7 @@ disp('b: previous frame')
 disp('t: enter a time to navigate to')
 disp('f: enter a frame to navigate to')
 disp('c: click a point on the average graph to navigate to')
+disp('s: saves the current frame to be shown in a subplot at the end')
 disp('Move the slider below the plot. Click on the figure to navigate there')
 
 %Clear anything in the figure
@@ -40,6 +43,11 @@ xmin = inf;
 ymax = -inf;
 ymin = inf;
 
+%Make a list of frames of interest (FOI)
+if ~exist('FOI', 'var')
+    FOI = [];
+end
+
 for c = 1:length(filenames)
     
 %Construct file name
@@ -56,9 +64,9 @@ data.(fNames{c}) = dataMat;
 
 %Initialize data structure for holding theta values
 if (numVars - 2)/2 - 2 < 1
-    theta.(tNames{c})(1:Length, 1) = 0
+    theta.(tNames{c})(1:Length, 1) = 0;
 else
-    theta.(tNames{c})(1:Length, 1:(numVars - 2)/2 - 2) = 0
+    theta.(tNames{c})(1:Length, 1:(numVars - 2)/2 - 2) = 0;
 end
 
 %Loop over all of the variables in each frame of the video
@@ -340,6 +348,10 @@ while f <= Length
             f = tFrame(1);
             CH = 0;
         end
+        if CH == 115 %s saves the current frame
+            FOI(end + 1) = f;
+            display(strcat(['Frame ', int2str(f), ' saved']))
+        end
         
         %clears axis to draw the next figure
         arrayfun(@cla,findall(0,'type','axes'))
@@ -362,6 +374,43 @@ title('Rat Leg Angular Motion')
 xlabel('Time (s)')
 ylabel('Angle (degrees)')
 legend(filenames, 'Average Theta')
+
+%Makes subplot of frames of interest
+spSize = length(FOI);
+
+if spSize ~= 0
+    figure
+    for i = 1:spSize
+        f = FOI(i);
+        for c = 1:length(filenames)
+            for j = 3:numVars - 2
+                if mod(j,2) ~= 0
+                    hold on
+
+                    px = aData.(fNames{c})(f,j); %Previous x, y
+                    py = aData.(fNames{c})(f,j + 1);
+
+                    x = aData.(fNames{c})(f,j + 2); %Current x, y
+                    y = aData.(fNames{c})(f,j + 3);
+
+                    %Plot lines                    
+                    subplot(1,spSize,i)
+                    line([px, x],[py, y], 'Color', ColOrd(j,:));            
+                    title(strcat('Stimulated Rat Limb Motion @ t = ', ...
+                        num2str(aData.(fNames{c})(f,2)), ', f = ', ...
+                        num2str(aData.(fNames{c})(f,1))))
+                    axis([xmin,xmax,ymin,ymax]);
+                    %Write angle on plot
+                    if j > 3
+                        text(px, py + (ymax - ymin)/100, ...
+                        strcat(num2str(theta.(tNames{c})(f,(j-1)/2 - 1)), '°'))
+                    end
+                    hold off                
+                end
+            end
+        end
+    end
+end
 
 end
 
