@@ -1,0 +1,49 @@
+function [ avg ] = ballVelocity( fileroot, filenames )
+%This function calculates the average x velocity of a tracked object in a 
+%CinePlexvideo file. The last variable is assumed to be the ball
+%Inputs: fileroot (string) excluding file name
+%        filenames (cell array of strings) file names separated by commas
+
+
+%Generate a set of names for each file's data values
+fSetup(1:length(filenames)) = {'file'};
+fNames = genvarname(fSetup);
+
+for c = 1:length(filenames)
+    
+%Construct file name
+filepath = cell2mat(strcat(fileroot,'/',filenames(c),'.txt'));
+
+%Load the data from the file into a variable
+dataMat = load(filepath);
+
+%Fill a data structure with the data from the file
+data.(fNames{c}) = dataMat;
+
+%Calculates the number of variables (columns) and data points (rows)
+[Length, numVars] = size(dataMat);
+
+%Give names to the time variable and the last set of x-values in the
+%data file. Assumes the ball is the last thing tracked and only finds
+%x velocity
+time = data.(fNames{c})(:,2);
+x = data.(fNames{c})(:,numVars - 1);
+
+%Plot position vs time
+plot(time, x)
+
+%Get user input on the range of values to consider for average velocity
+[tS, bpS] = ginput(2);
+bpS;
+tS;
+
+%Calibration to change from pixels to mm approximately, this would
+%need to be adjusted for every run unless you calibrate the CinePlex
+bpS = bpS .* 40/134
+
+avgV(c) = (bpS(2) - bpS(1))/(tS(2) - tS(1))
+
+end
+
+end
+
